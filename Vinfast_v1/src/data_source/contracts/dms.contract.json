@@ -1,0 +1,48 @@
+{
+  "dataset": "dms",
+  "version": "1.0.0",
+  "description": "Dealer Management System — sales, inventory, dealers",
+  "tables": {
+    "sales_order": {
+      "grain": "1 row = 1 don hang ban xe",
+      "primary_keys": ["order_id"],
+      "fields": [
+        {"name": "order_id", "type": "string", "required": true},
+        {"name": "vin", "type": "string", "required": true, "pattern": "^[A-HJ-NPR-Z0-9]{17}$"},
+        {"name": "dealer_code", "type": "string", "required": true},
+        {"name": "customer_phone", "type": "string", "required": true},
+        {"name": "sale_date", "type": "datetime", "required": true},
+        {"name": "model_code", "type": "string", "required": true, "enum": ["VF3", "VF5", "VFe34", "VF6", "VF7", "VF8", "VF9", "VF_AMIO_S", "VF_EVO_LITE_S", "VF_FLAZZ_S"]},
+        {"name": "color", "type": "string", "required": true},
+        {"name": "unit_price_vnd", "type": "number", "required": true, "min": 0},
+        {"name": "payment_method", "type": "string", "required": true, "enum": ["cash", "bank_loan", "installment"]},
+        {"name": "warranty_start", "type": "datetime", "required": true}
+      ]
+    },
+    "dealer": {
+      "grain": "1 row = 1 dai ly",
+      "primary_keys": ["dealer_code"],
+      "fields": [
+        {"name": "dealer_code", "type": "string", "required": true},
+        {"name": "dealer_name", "type": "string", "required": true},
+        {"name": "city", "type": "string", "required": true, "enum": ["HN", "SG", "DN", "TH", "TN", "NA", "HT"]},
+        {"name": "address", "type": "string", "required": true},
+        {"name": "lat", "type": "number", "required": true, "min": 8.0, "max": 24.0},
+        {"name": "lon", "type": "number", "required": true, "min": 102.0, "max": 110.0},
+        {"name": "dealer_type", "type": "string", "required": true, "enum": ["flagship", "retail", "service"]}
+      ]
+    },
+    "inventory": {
+      "grain": "1 row = 1 xe trong ton kho",
+      "primary_keys": ["vin"],
+      "fields": [
+        {"name": "vin", "type": "string", "required": true, "pattern": "^[A-HJ-NPR-Z0-9]{17}$"},
+        {"name": "model_code", "type": "string", "required": true},
+        {"name": "color", "type": "string", "required": true},
+        {"name": "dealer_code", "type": "string", "required": true},
+        {"name": "stock_in_date", "type": "datetime", "required": true},
+        {"name": "status", "type": "string", "required": true, "enum": ["in_stock", "sold", "reserved"]}
+      ]
+    }
+  }
+}

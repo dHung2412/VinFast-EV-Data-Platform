@@ -1,0 +1,71 @@
+{
+  "dataset": "entities",
+  "version": "2.0.0",
+  "description": "Dimension tables: users, vehicles, stations",
+  "grain": "1 row per entity",
+  "primary_keys": {
+    "users": ["u_id"],
+    "vehicles": ["vehicle_id"],
+    "stations": ["station_id"]
+  },
+  "cadence": "snapshot per generation (no partition)",
+  "pii_fields": ["phone", "name"],
+  "retention_days": 730,
+  "tables": {
+    "users": {
+      "fields": [
+        {"name": "u_id", "type": "string", "required": true, "pattern": "^USR-[0-9]{5}$"},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "phone", "type": "string", "required": true, "pattern": "^0[0-9]{9}$"}
+      ],
+      "quality_assertions": [
+        {"rule": "u_id unique", "columns": ["u_id"]}
+      ]
+    },
+    "vehicles": {
+      "fields": [
+        {"name": "vehicle_id", "type": "string", "required": true, "pattern": "^VFS-[0-9]{5}$"},
+        {"name": "u_id", "type": "string", "required": true, "pattern": "^USR-[0-9]{5}$"},
+        {"name": "model", "type": "string", "required": true, "enum": ["VF 3", "VF 5", "VF e34", "VF 6", "VF 7", "VF 8", "VF 9", "VF Amio S", "VF Evo Lite S", "VF Flazz S"]},
+        {"name": "type", "type": "string", "required": true, "enum": ["car", "motorbike"]},
+        {"name": "city_code", "type": "string", "required": true, "enum": ["HN", "SG", "DN", "TH", "TN", "NA", "HT", "QN"]},
+        {"name": "home_lat", "type": "number", "required": true, "min": 8, "max": 24},
+        {"name": "home_lon", "type": "number", "required": true, "min": 102, "max": 110},
+        {"name": "work_lat", "type": "number", "required": true, "min": 8, "max": 24},
+        {"name": "work_lon", "type": "number", "required": true, "min": 102, "max": 110},
+        {"name": "battery_kwh", "type": "number", "required": true, "min": 0.5, "max": 150},
+        {"name": "wh_per_km", "type": "number", "required": true, "min": 5, "max": 300},
+        {"name": "mass_kg", "type": "number", "required": true, "min": 50, "max": 4000},
+        {"name": "Cd", "type": "number", "required": false, "min": 0.1, "max": 1.5},
+        {"name": "A_frontal_m2", "type": "number", "required": false, "min": 0.3, "max": 5.0},
+        {"name": "r_wheel_m", "type": "number", "required": false, "min": 0.1, "max": 1.0},
+        {"name": "gear_ratio", "type": "number", "required": false, "min": 1, "max": 20},
+        {"name": "V_pack_nom_v", "type": "number", "required": false, "min": 30, "max": 800},
+        {"name": "R_int_base_ohm", "type": "number", "required": false, "min": 0.005, "max": 1.0},
+        {"name": "odometer_start_km", "type": "number", "required": true, "min": 0},
+        {"name": "tire_pressure_base_bar", "type": "number", "required": true, "min": 1.5, "max": 5.0},
+        {"name": "battery_soh_pct", "type": "number", "required": true, "min": 80, "max": 100},
+        {"name": "years_old", "type": "number", "required": true, "min": 0, "max": 20}
+      ],
+      "quality_assertions": [
+        {"rule": "vehicle_id unique", "columns": ["vehicle_id"]},
+        {"rule": "FK vehicles.u_id -> users.u_id", "columns": ["u_id"]},
+        {"rule": "car models have battery_kwh >= 10; motorbike < 10", "columns": ["model", "battery_kwh"]}
+      ]
+    },
+    "stations": {
+      "fields": [
+        {"name": "station_id", "type": "string", "required": true, "pattern": "^CS-(HN|SG|DN|TH|TN|NA|HT)-[0-9]{3}$"},
+        {"name": "city_code", "type": "string", "required": true, "enum": ["HN", "SG", "DN", "TH", "TN", "NA", "HT", "QN"]},
+        {"name": "charger_type", "type": "string", "required": true, "enum": ["AC_TYPE2", "CCS2_DC"]},
+        {"name": "max_power_kw", "type": "number", "required": true, "min": 0, "max": 500},
+        {"name": "num_chargers", "type": "integer", "required": true, "min": 1, "max": 50},
+        {"name": "lat", "type": "number", "required": true, "min": 8, "max": 24},
+        {"name": "lon", "type": "number", "required": true, "min": 102, "max": 110}
+      ],
+      "quality_assertions": [
+        {"rule": "station_id unique", "columns": ["station_id"]}
+      ]
+    }
+  }
+}

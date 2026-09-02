@@ -1,0 +1,106 @@
+source:
+  name: dms
+  type: csv
+  connection:
+    path: data/raw/dms/
+    encoding: utf-8
+    delimiter: ","
+  schedule: daily
+
+contract:
+  ref: contracts/dms.contract.json
+  version: "1.0.0"
+
+bronze:
+  destination: s3://vinfast-bronze/dms/
+  partition: [ingest_date]
+  mode: overwrite_partition
+  add_metadata: true
+
+entities:
+  - name: sales_order
+    grain: "1 row = 1 don hang ban xe"
+    canonical_entity: sales_order
+
+    identity:
+      source_keys: [vin]
+      canonical_key: vehicle_id
+      canonical_entity: vehicle
+      strategy: match_or_create
+
+    mapping:
+      - { source: order_id,         canonical: order_id }
+      - { source: vin,              canonical: vin }
+      - { source: dealer_code,      canonical: dealer_id }
+      - { source: customer_phone,   canonical: phone,     transform: normalize_phone }
+      - { source: sale_date,        canonical: sold_at,    transform: parse_date }
+      - { source: model_code,       canonical: model }
+      - { source: color,            canonical: color }
+      - { source: unit_price_vnd,   canonical: price_vnd }
+      - { source: payment_method,   canonical: payment_method }
+      - { source: warranty_start,   canonical: warranty_start, transform: parse_date }
+
+    dedup:
+      keys: [order_id]
+      order_by: sale_date
+
+    quality:
+      reject_on_error: false
+      min_rows: 1
+
+  - name: dealer
+    grain: "1 row = 1 dai ly / diem ban le"
+    canonical_entity: dealer
+
+    identity:
+      source_keys: [dealer_id]
+      canonical_key: dealer_id
+      strategy: match_or_create
+
+    mapping:
+      - { source: dealer_code,  canonical: dealer_id }
+      - { source: dealer_name,  canonical: name }
+      - { source: city,         canonical: city_code }
+      - { source: address,      canonical: address }
+      - { source: lat,          canonical: lat }
+      - { source: lon,          canonical: lon }
+      - { source: dealer_type,  canonical: type }
+
+    dedup:
+      keys: [dealer_id]
+      order_by: dealer_id
+
+    quality:
+      reject_on_error: false
+      min_rows: 1
+
+  - name: inventory
+    grain: "1 row = 1 xe trong ton kho"
+    canonical_entity: vehicle
+
+    identity:
+      source_keys: [vin]
+      canonical_key: vehicle_id
+      strategy: match_or_create
+
+    mapping:
+      - { source: vin,           canonical: vin }
+      - { source: model_code,    canonical: model }
+      - { source: color,         canonical: color }
+      - { source: dealer_code,   canonical: dealer_id }
+      - { source: stock_in_date, canonical: stocked_at, transform: parse_date }
+      - { source: status,        canonical: inventory_status }
+
+    dedup:
+      keys: [vin]
+      order_by: stock_in_date
+
+    quality:
+      reject_on_error: false
+      min_rows: 1
+
+silver:
+  destination: s3://vinfast-silver/dms/
+  engine: pandas
+  partition: [year, month]
+  format: parquet

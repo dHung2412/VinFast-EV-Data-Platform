@@ -1,0 +1,23 @@
+vinfast:
+  target: dev
+  outputs:
+    dev:
+      type: clickhouse
+      host: localhost
+      port: 8123
+      user: vinfast
+      password: vinfast123
+      database: vinfast
+      schema: vinfast
+      secure: false
+      verify: false
+    docker:
+      type: clickhouse
+      host: "{{ env_var('CLICKHOUSE_HOST', 'localhost') }}"
+      port: 8123
+      user: vinfast
+      password: vinfast123
+      database: vinfast
+      schema: vinfast
+      secure: false
+      verify: false

@@ -1,0 +1,64 @@
+source:
+  name: charging
+  type: csv
+  connection:
+    path: data/raw/charging/
+    encoding: utf-8
+    delimiter: ","
+  schedule: daily
+
+contract:
+  ref: contracts/charging.contract.json
+  version: "1.0.0"
+
+bronze:
+  destination: s3://vinfast-bronze/charging/
+  partition: [year, month, day]
+  mode: overwrite_partition
+  add_metadata: true
+
+entities:
+  - name: charging_session
+    grain: "1 row = 1 phien sac (tu he thong sac ngoai)"
+    canonical_entity: charging_session
+
+    identity:
+      source_keys: [vin]
+      canonical_key: vehicle_id
+      canonical_entity: vehicle
+      strategy: match_or_null
+      fallback_keys: [station_id, connector_id, started_at]
+
+    mapping:
+      - { source: session_id,       canonical: session_id }
+      - { source: vin,              canonical: vin }
+      - { source: station_id,       canonical: station_id }
+      - { source: connector_id,     canonical: connector_id }
+      - { source: charger_type,     canonical: charger_type }
+      - { source: started_at,       canonical: started_at,  transform: parse_date }
+      - { source: ended_at,         canonical: ended_at,    transform: parse_date }
+      - { source: kwh_delivered,    canonical: kwh_delivered }
+      - { source: cost_vnd,         canonical: cost_vnd }
+      - { source: payment_method,   canonical: payment_method }
+
+    dedup:
+      keys: [session_id]
+      order_by: started_at
+
+    quality:
+      reject_on_error: false
+      min_rows: 1
+
+silver:
+  destination: s3://vinfast-silver/charging_ext/
+  engine: pandas
+  partition: [year, month, day]
+  format: parquet
+
+  derived_columns:
+    - { name: duration_min,      expr: "duration_min_computed" }
+    - { name: duration_hours,    expr: "duration_hours_computed" }
+    - { name: avg_power_kw,      expr: "kwh_delivered / duration_hours" }
+    - { name: cost_per_kwh_vnd,  expr: "cost_vnd / kwh_delivered" }
+    - { name: is_fast_charge,    expr: "charger_type == 'CCS2_DC'" }
+    - { name: source,            expr: "'external'" }

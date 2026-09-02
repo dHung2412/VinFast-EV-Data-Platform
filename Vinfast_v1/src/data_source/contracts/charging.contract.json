@@ -1,0 +1,27 @@
+{
+  "dataset": "charging",
+  "version": "1.0.0",
+  "description": "External charging sessions from OCPP/network operator",
+  "tables": {
+    "charging_session": {
+      "grain": "1 row = 1 phien sac",
+      "primary_keys": ["session_id"],
+      "fields": [
+        {"name": "session_id", "type": "string", "required": true},
+        {"name": "vin", "type": "string", "required": false, "nullable": true, "pattern": "^[A-HJ-NPR-Z0-9]{17}$"},
+        {"name": "station_id", "type": "string", "required": true},
+        {"name": "connector_id", "type": "string", "required": true},
+        {"name": "charger_type", "type": "string", "required": true, "enum": ["AC_TYPE2", "CCS2_DC"]},
+        {"name": "started_at", "type": "datetime", "required": true},
+        {"name": "ended_at", "type": "datetime", "required": true},
+        {"name": "kwh_delivered", "type": "number", "required": true, "min": 0, "max": 200},
+        {"name": "cost_vnd", "type": "number", "required": true, "min": 0},
+        {"name": "payment_method", "type": "string", "required": true, "enum": ["app", "rfid_card", "credit_card", "cash"]}
+      ]
+    }
+  },
+  "quality_assertions": [
+    {"rule": "ended_at > started_at", "columns": ["ended_at", "started_at"]},
+    {"rule": "kwh_delivered > 0", "columns": ["kwh_delivered"]}
+  ]
+}

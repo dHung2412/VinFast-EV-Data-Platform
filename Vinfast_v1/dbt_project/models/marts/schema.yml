@@ -1,0 +1,94 @@
+version: 2
+
+models:
+  - name: mart_vehicle_360
+    description: "1 row per vehicle — lifetime 360 view"
+    columns:
+      - name: vehicle_id
+        tests: [unique, not_null]
+      - name: model
+        tests: [not_null]
+      - name: type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['car', 'motorbike']
+      - name: city_code
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['HN', 'SG', 'DN', 'TH', 'TN', 'NA', 'HT', 'QN']
+
+  - name: mart_charging_analytics
+    description: "1 row per charging session enriched"
+    columns:
+      - name: session_id
+        tests: [unique, not_null]
+      - name: vehicle_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('mart_vehicle_360')
+                field: vehicle_id
+      - name: charger_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['AC_TYPE2', 'CCS2_DC']
+      - name: started_at
+        tests: [not_null]
+      - name: ended_at
+        tests: [not_null]
+    tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "ended_at > started_at"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "end_soc_pct >= start_soc_pct"
+
+  - name: mart_customer_360
+    description: "1 row per customer — CRM + DMS + lifecycle"
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: phone
+        tests: [not_null]
+      - name: lifecycle_stage
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['lead', 'prospect_warm', 'prospect_hot', 'customer']
+      - name: city_code
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['HN', 'SG', 'DN', 'TH', 'TN', 'NA', 'HT', 'QN']
+
+  - name: mart_sales_pipeline
+    description: "1 row per dealer — sales agg"
+    columns:
+      - name: dealer_id
+        tests: [unique, not_null]
+      - name: city_code
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['HN', 'SG', 'DN', 'TH', 'TN', 'NA', 'HT', 'QN']
+
+  - name: mart_charging_revenue
+    description: "1 row per station x charger_type — external charging revenue"
+    columns:
+      - name: station_id
+        tests: [not_null]
+      - name: charger_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['AC_TYPE2', 'CCS2_DC']
+
+  - name: mart_daily_fleet
+    columns:
+      - name: activity_date
+        tests: [unique, not_null]

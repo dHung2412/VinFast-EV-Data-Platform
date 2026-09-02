@@ -1,0 +1,175 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    environment:
+      CLICKHOUSE_USER: vinfast
+      CLICKHOUSE_PASSWORD: vinfast123
+      CLICKHOUSE_DB: vinfast
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    environment:
+      MINIO_ROOT_USER: vinfast
+      MINIO_ROOT_PASSWORD: vinfast123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 vinfast vinfast123;
+      mc mb local/vinfast-bronze --ignore-existing;
+      mc mb local/vinfast-silver --ignore-existing;
+      mc mb local/vinfast-gold --ignore-existing;
+      echo 'Buckets created successfully.';
+      "
+
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: h2
+      JAVA_TIMEZONE: Asia/Ho_Chi_Minh
+      MB_PLUGINS_DIR: /plugins
+    volumes:
+      - ./metabase/plugins:/plugins
+      - metabase_data:/metabase-data
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  # # --- Airflow 3 (Phase 5) ---
+  # airflow-db:
+  #   image: postgres:16
+  #   environment:
+  #     POSTGRES_USER: airflow
+  #     POSTGRES_PASSWORD: airflow
+  #     POSTGRES_DB: airflow
+  #   volumes:
+  #     - airflow_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD", "pg_isready", "-U", "airflow"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
+
+  # airflow-webserver:
+  #   build:
+  #     context: .
+  #     dockerfile: ./airflow/Dockerfile
+  #   command: api-server
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  #     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+  #     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db/airflow
+  #     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  #     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+  #     AIRFLOW__CORE__FERNET_KEY: ""
+  #     MINIO_ENDPOINT: http://minio:9000
+  #     CLICKHOUSE_HOST: clickhouse
+  #     PYTHONPATH: /opt/airflow:/opt/airflow/dags
+  #   volumes:
+  #     - ./dags:/opt/airflow/dags
+  #     - ./pipeline:/opt/airflow/pipeline
+  #     - ./ingestion:/opt/airflow/ingestion
+  #     - ./spark_jobs:/opt/airflow/spark_jobs
+  #     - ./data_generator:/opt/airflow/data_generator
+  #     - ./sources:/opt/airflow/sources
+  #     - ./contracts:/opt/airflow/contracts
+  #     - ./cross_source_rules:/opt/airflow/cross_source_rules
+  #     - ./dbt_project:/opt/airflow/dbt_project
+  #     - ./data:/opt/airflow/data
+  #   depends_on:
+  #     airflow-db:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+
+  # airflow-dag-processor:
+  #   build:
+  #     context: .
+  #     dockerfile: ./airflow/Dockerfile
+  #   command: dag-processor
+  #   environment:
+  #     AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  #     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db/airflow
+  #     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  #     MINIO_ENDPOINT: http://minio:9000
+  #     PYTHONPATH: /opt/airflow:/opt/airflow/dags
+  #   volumes:
+  #     - ./dags:/opt/airflow/dags
+  #     - ./pipeline:/opt/airflow/pipeline
+  #     - ./ingestion:/opt/airflow/ingestion
+  #     - ./spark_jobs:/opt/airflow/spark_jobs
+  #     - ./data_generator:/opt/airflow/data_generator
+  #     - ./sources:/opt/airflow/sources
+  #     - ./contracts:/opt/airflow/contracts
+  #     - ./cross_source_rules:/opt/airflow/cross_source_rules
+  #     - ./dbt_project:/opt/airflow/dbt_project
+  #     - ./data:/opt/airflow/data
+  #   depends_on:
+  #     airflow-db:
+  #       condition: service_healthy
+
+  # airflow-scheduler:
+  #   build:
+  #     context: .
+  #     dockerfile: ./airflow/Dockerfile
+  #   command: scheduler
+  #   environment:
+  #     AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  #     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+  #     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db/airflow
+  #     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  #     MINIO_ENDPOINT: http://minio:9000
+  #     CLICKHOUSE_HOST: clickhouse
+  #     PYTHONPATH: /opt/airflow:/opt/airflow/dags
+  #   volumes:
+  #     - ./dags:/opt/airflow/dags
+  #     - ./pipeline:/opt/airflow/pipeline
+  #     - ./ingestion:/opt/airflow/ingestion
+  #     - ./spark_jobs:/opt/airflow/spark_jobs
+  #     - ./data_generator:/opt/airflow/data_generator
+  #     - ./sources:/opt/airflow/sources
+  #     - ./contracts:/opt/airflow/contracts
+  #     - ./cross_source_rules:/opt/airflow/cross_source_rules
+  #     - ./dbt_project:/opt/airflow/dbt_project
+  #     - ./data:/opt/airflow/data
+  #   depends_on:
+  #     airflow-db:
+  #       condition: service_healthy
+
+volumes:
+  clickhouse_data:
+  metabase_data:
+  minio_data:
+  # airflow_data:

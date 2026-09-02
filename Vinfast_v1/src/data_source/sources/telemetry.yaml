@@ -1,0 +1,84 @@
+source:
+  name: telemetry
+  type: parquet
+  connection:
+    path: data/raw/telemetry/
+  schedule: daily
+
+contract:
+  ref: contracts/telemetry.contract.json
+  version: "2.0.0"
+
+bronze:
+  destination: s3://vinfast-bronze/telemetry/
+  partition: [year, month, day]
+  mode: overwrite_partition
+  add_metadata: true
+
+entities:
+  - name: telemetry_event
+    grain: "1 row = 1 su kien xe (10s/30s/15min)"
+    canonical_entity: telemetry_event
+
+    identity:
+      source_keys: [vehicle_id]
+      canonical_key: vehicle_id
+      strategy: match_or_create
+
+    mapping:
+      - { source: vehicle_id,         canonical: vehicle_id }
+      - { source: event_timestamp,    canonical: event_timestamp }
+      - { source: model,              canonical: model }
+      - { source: type,               canonical: type }
+      - { source: battery_soc_pct,    canonical: battery_soc_pct }
+      - { source: battery_soh_pct,    canonical: battery_soh_pct }
+      - { source: battery_temp_c,     canonical: battery_temp_c }
+      - { source: battery_temp_avg_c, canonical: battery_temp_avg_c }
+      - { source: battery_temp_max_c, canonical: battery_temp_max_c }
+      - { source: charging_status,    canonical: charging_status }
+      - { source: speed_kmh,          canonical: speed_kmh }
+      - { source: odometer_km,        canonical: odometer_km }
+      - { source: motor_rpm,          canonical: motor_rpm }
+      - { source: motor_temp_c,       canonical: motor_temp_c }
+      - { source: inverter_temp_c,    canonical: inverter_temp_c }
+      - { source: gear_mode,          canonical: gear_mode }
+      - { source: latitude,           canonical: latitude }
+      - { source: longitude,          canonical: longitude }
+      - { source: acceleration_x,     canonical: acceleration_x }
+      - { source: acceleration_y,     canonical: acceleration_y }
+      - { source: acceleration_z,     canonical: acceleration_z }
+      - { source: lock_status,        canonical: lock_status }
+      - { source: cabin_temp_c,       canonical: cabin_temp_c }
+      - { source: hvac_power_kw,      canonical: hvac_power_kw }
+      - { source: airbag_deployed,    canonical: airbag_deployed }
+      - { source: tire_pressure_fl_bar, canonical: tire_pressure_fl_bar }
+      - { source: tire_pressure_fr_bar, canonical: tire_pressure_fr_bar }
+      - { source: tire_pressure_rl_bar, canonical: tire_pressure_rl_bar }
+      - { source: tire_pressure_rr_bar, canonical: tire_pressure_rr_bar }
+      - { source: ambient_temp_c,     canonical: ambient_temp_c }
+      - { source: is_charging,        canonical: is_charging }
+      - { source: charging_power_kw,  canonical: charging_power_kw }
+      - { source: ignition_on,        canonical: ignition_on }
+
+    dedup:
+      keys: [vehicle_id, event_timestamp]
+      order_by: event_timestamp
+
+    quality:
+      reject_on_error: false
+      min_rows: 100
+
+silver:
+  destination: s3://vinfast-silver/telemetry/
+  engine: pandas
+  partition: [year, month, day]
+  format: parquet
+
+  derived_columns:
+    - { name: is_driving,            expr: "speed_kmh > 2 AND NOT is_charging" }
+    - { name: is_idle,               expr: "ignition_on AND speed_kmh <= 2 AND NOT is_charging" }
+    - { name: tire_pressure_min_bar, expr: "least(tire_pressure_fl_bar, tire_pressure_fr_bar, tire_pressure_rl_bar, tire_pressure_rr_bar)" }
+    - { name: tire_pressure_alert,   expr: "tire_pressure_min_bar < 1.9" }
+    - { name: battery_temp_alert,    expr: "battery_temp_c > 45.0" }
+    - { name: high_speed_event,      expr: "speed_kmh > 100.0" }
+    - { name: hard_brake_event,      expr: "acceleration_x < -3.0" }

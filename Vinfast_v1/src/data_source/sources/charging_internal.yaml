@@ -1,0 +1,54 @@
+source:
+  name: charging_internal
+  type: parquet
+  connection:
+    path: data/raw/charging_sessions/
+  schedule: daily
+
+contract:
+  ref: contracts/charging_sessions.contract.json
+  version: "2.0.0"
+
+plugin:
+  module: src.pipeline.plugins.charging_internal
+  hooks: [post_resolve]
+
+bronze:
+  destination: s3://vinfast-bronze/charging_internal/
+  partition: [ingest_date]
+  mode: overwrite_partition
+  add_metadata: true
+
+entities:
+  - name: charging_session
+    grain: "1 row = 1 phien sac tai tram VinFast (trich tu telemetry)"
+    canonical_entity: charging_session
+
+    mapping:
+      - { source: session_id,       canonical: session_id }
+      - { source: vehicle_id,       canonical: vehicle_id }
+      - { source: station_id,       canonical: station_id }
+      - { source: charger_type,     canonical: charger_type }
+      - { source: power_kw,         canonical: power_kw }
+      - { source: started_at,       canonical: started_at }
+      - { source: ended_at,         canonical: ended_at }
+      - { source: duration_min,     canonical: duration_min }
+      - { source: kwh_delivered,    canonical: kwh_delivered }
+      - { source: start_soc_pct,    canonical: start_soc_pct }
+      - { source: end_soc_pct,      canonical: end_soc_pct }
+      - { source: cost_vnd,         canonical: cost_vnd }
+      - { source: payment_method,   canonical: payment_method }
+
+    dedup:
+      keys: [session_id]
+      order_by: started_at
+
+    quality:
+      reject_on_error: false
+      min_rows: 1
+
+silver:
+  destination: s3://vinfast-silver/charging_internal/
+  engine: pandas
+  partition: [year, month, day]
+  format: parquet

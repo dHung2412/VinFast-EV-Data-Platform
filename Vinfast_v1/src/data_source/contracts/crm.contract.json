@@ -1,0 +1,37 @@
+{
+  "dataset": "crm",
+  "version": "1.0.0",
+  "description": "Customer data from CRM system",
+  "tables": {
+    "customer": {
+      "grain": "1 row = 1 khach hang",
+      "primary_keys": ["customer_code"],
+      "fields": [
+        {"name": "customer_code", "type": "string", "required": true},
+        {"name": "full_name", "type": "string", "required": true},
+        {"name": "phone_number", "type": "string", "required": true, "pattern": "^[0-9+ ]{10,15}$"},
+        {"name": "email", "type": "string", "required": false, "nullable": true},
+        {"name": "customer_status", "type": "string", "required": true, "enum": ["active", "inactive", "lead", "churned"]},
+        {"name": "registered_date", "type": "datetime", "required": true},
+        {"name": "city", "type": "string", "required": true, "enum": ["HN", "SG", "DN", "TH", "TN", "NA", "HT", "QN"]}
+      ]
+    },
+    "interaction": {
+      "grain": "1 row = 1 tuong tac",
+      "primary_keys": ["interaction_id"],
+      "fields": [
+        {"name": "interaction_id", "type": "string", "required": true},
+        {"name": "phone_number", "type": "string", "required": true},
+        {"name": "interaction_type", "type": "string", "required": true, "enum": ["call", "email", "visit", "test_drive", "complaint", "purchase"]},
+        {"name": "interaction_date", "type": "datetime", "required": true},
+        {"name": "outcome", "type": "string", "required": false},
+        {"name": "agent_name", "type": "string", "required": false},
+        {"name": "notes", "type": "string", "required": false}
+      ]
+    }
+  },
+  "quality_assertions": [
+    {"rule": "phone_number not null", "columns": ["phone_number"]},
+    {"rule": "interaction_date not in future", "columns": ["interaction_date"]}
+  ]
+}

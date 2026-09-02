@@ -1,0 +1,7 @@
+dbt-core==1.12.3
+dbt-clickhouse==1.9.3
+pandas
+pyarrow
+clickhouse-connect
+boto3
+pyyaml

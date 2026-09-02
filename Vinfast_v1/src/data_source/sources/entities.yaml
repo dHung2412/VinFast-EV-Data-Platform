@@ -1,0 +1,100 @@
+source:
+  name: entities
+  type: parquet
+  connection:
+    path: data/raw/entities/
+  schedule: daily
+
+contract:
+  ref: contracts/entities.contract.json
+  version: "2.0.0"
+
+bronze:
+  destination: s3://vinfast-bronze/entities/
+  partition: [ingest_date]
+  mode: overwrite_partition
+  add_metadata: true
+
+entities:
+  - name: users
+    grain: "1 row = 1 nguoi dung (chu so huu xe)"
+    canonical_entity: app_user
+
+    mapping:
+      - { source: u_id,  canonical: u_id }
+      - { source: name,  canonical: name }
+      - { source: phone, canonical: phone }
+
+    dedup:
+      keys: [u_id]
+      order_by: u_id
+
+    quality:
+      reject_on_error: false
+      min_rows: 1
+
+  - name: vehicles
+    grain: "1 row = 1 phuong tien trong doi xe"
+    canonical_entity: vehicle
+
+    identity:
+      source_keys: [vehicle_id]
+      canonical_key: vehicle_id
+      strategy: match_or_create
+
+    mapping:
+      - { source: vehicle_id,          canonical: vehicle_id }
+      - { source: u_id,                canonical: u_id }
+      - { source: model,               canonical: model }
+      - { source: type,                canonical: type }
+      - { source: city_code,           canonical: city_code }
+      - { source: home_lat,            canonical: home_lat }
+      - { source: home_lon,            canonical: home_lon }
+      - { source: work_lat,            canonical: work_lat }
+      - { source: work_lon,            canonical: work_lon }
+      - { source: battery_kwh,         canonical: battery_kwh }
+      - { source: odometer_start_km,   canonical: odometer_start_km }
+      - { source: tire_pressure_base_bar, canonical: tire_pressure_base_bar }
+      - { source: battery_soh_pct,     canonical: battery_soh_pct }
+      - { source: years_old,           canonical: years_old }
+
+    dedup:
+      keys: [vehicle_id]
+      order_by: vehicle_id
+
+    quality:
+      reject_on_error: false
+      min_rows: 1
+
+  - name: stations
+    grain: "1 row = 1 tram sac"
+    canonical_entity: station
+
+    identity:
+      source_keys: [station_id]
+      canonical_key: station_id
+      strategy: match_or_create
+
+    mapping:
+      - { source: station_id,   canonical: station_id }
+      - { source: city_code,    canonical: city_code }
+      - { source: charger_type, canonical: charger_type }
+      - { source: max_power_kw, canonical: max_power_kw }
+      - { source: num_chargers, canonical: num_chargers }
+      - { source: lat,          canonical: lat }
+      - { source: lon,          canonical: lon }
+
+    dedup:
+      keys: [station_id]
+      order_by: station_id
+
+    quality:
+      reject_on_error: false
+      min_rows: 1
+
+silver:
+  destination: s3://vinfast-silver/entities/
+  engine: pandas
+  snapshot: true
+  partition: []
+  format: parquet

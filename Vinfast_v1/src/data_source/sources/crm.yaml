@@ -1,0 +1,79 @@
+source:
+  name: crm
+  type: csv
+  connection:
+    path: data/raw/crm/
+    encoding: utf-8
+    delimiter: ","
+  schedule: daily
+
+contract:
+  ref: contracts/crm.contract.json
+  version: "1.0.0"
+
+bronze:
+  destination: s3://vinfast-bronze/crm/
+  partition: [ingest_date]
+  mode: overwrite_partition
+  add_metadata: true
+
+entities:
+  - name: customer
+    grain: "1 row = 1 khach hang"
+    canonical_entity: customer
+
+    identity:
+      source_keys: [phone]
+      canonical_key: customer_id
+      strategy: match_or_create
+      match_tolerance: normalize_phone
+
+    mapping:
+      - { source: customer_code,   canonical: crm_customer_code }
+      - { source: full_name,       canonical: name }
+      - { source: phone_number,    canonical: phone,    transform: normalize_phone }
+      - { source: email,           canonical: email,    transform: lower }
+      - { source: customer_status, canonical: status }
+      - { source: registered_date, canonical: registered_at, transform: parse_date }
+      - { source: city,            canonical: city_code }
+
+    dedup:
+      keys: [phone]
+      order_by: registered_at
+
+    quality:
+      reject_on_error: false
+      min_rows: 1
+
+  - name: interaction
+    grain: "1 row = 1 tuong tac khach hang"
+    canonical_entity: customer_interaction
+
+    identity:
+      source_keys: [phone]
+      canonical_key: customer_id
+      canonical_entity: customer
+      strategy: match_or_null
+
+    mapping:
+      - { source: interaction_id,    canonical: interaction_id }
+      - { source: phone_number,      canonical: phone,          transform: normalize_phone }
+      - { source: interaction_type,  canonical: type }
+      - { source: interaction_date,  canonical: occurred_at,     transform: parse_date }
+      - { source: outcome,           canonical: outcome }
+      - { source: agent_name,        canonical: agent }
+      - { source: notes,             canonical: notes }
+
+    dedup:
+      keys: [interaction_id]
+      order_by: interaction_date
+
+    quality:
+      reject_on_error: false
+      min_rows: 1
+
+silver:
+  destination: s3://vinfast-silver/crm/
+  engine: pandas
+  partition: [year, month]
+  format: parquet

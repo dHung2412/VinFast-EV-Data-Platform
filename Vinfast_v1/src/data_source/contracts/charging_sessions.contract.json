@@ -1,0 +1,32 @@
+{
+  "dataset": "charging_sessions",
+  "version": "2.0.0",
+  "description": "Completed charging sessions derived from telemetry is_charging runs",
+  "grain": "1 row per completed charging session",
+  "primary_keys": ["session_id"],
+  "cadence": "daily batch, hive-partitioned by start date",
+  "pii_fields": [],
+  "retention_days": 730,
+  "fields": [
+    {"name": "session_id", "type": "string", "required": true, "pattern": "^sess-[0-9a-f]{12}$"},
+    {"name": "vehicle_id", "type": "string", "required": true, "pattern": "^VFS-[0-9]{5}$"},
+    {"name": "station_id", "type": "string", "required": true, "pattern": "^CS-(HN|SG|DN|TH|TN|NA|HT|QN)-[0-9]{3}$"},
+    {"name": "charger_type", "type": "string", "required": true, "enum": ["AC_TYPE2", "CCS2_DC"]},
+    {"name": "power_kw", "type": "number", "required": true, "min": 0, "max": 400},
+    {"name": "started_at", "type": "datetime", "required": true, "format": "date-time"},
+    {"name": "ended_at", "type": "datetime", "required": true, "format": "date-time"},
+    {"name": "duration_min", "type": "number", "required": true, "min": 0, "max": 1440},
+    {"name": "kwh_delivered", "type": "number", "required": true, "min": 0, "max": 200},
+    {"name": "start_soc_pct", "type": "number", "required": true, "min": 0, "max": 100},
+    {"name": "end_soc_pct", "type": "number", "required": true, "min": 0, "max": 100},
+    {"name": "cost_vnd", "type": "number", "required": true, "min": 0},
+    {"name": "payment_method", "type": "string", "required": true, "enum": ["VinFast App", "RFID Card", "VNPay", "Credit Card"]}
+  ],
+  "quality_assertions": [
+    {"rule": "ended_at > started_at", "columns": ["ended_at", "started_at"]},
+    {"rule": "end_soc_pct > start_soc_pct", "columns": ["end_soc_pct", "start_soc_pct"]},
+    {"rule": "kwh_delivered consistent with soc delta +/- 20%", "columns": ["kwh_delivered", "start_soc_pct", "end_soc_pct"]},
+    {"rule": "duration_min > 0", "columns": ["duration_min"]},
+    {"rule": "station_id exists in stations dimension", "columns": ["station_id"]}
+  ]
+}
