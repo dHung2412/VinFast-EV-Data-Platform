@@ -233,3 +233,9 @@ Vinfast/
     ├── data/                  # Thư mục dữ liệu local (raw, bronze, mapping, quality_reports, rejected)
     └── logs/                  # Log vận hành pipeline và dbt
 ```
+
+## Contributors & Acknowledgements
+
+- **Main Author:** dHung2412 ([@dHung2412](https://github.com/dHung2412))
+- **AI Coding Assistant:** Antigravity (Google DeepMind)
+```
